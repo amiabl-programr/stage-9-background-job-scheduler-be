@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import configuration from './config/configuration';
+import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { WorkerModule } from './modules/worker/worker.module';
@@ -32,6 +33,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
         connection: { url: config.get('REDIS_URL') },
       }),
     }),
+    HealthModule,
     JobsModule,
     QueueModule,
     WorkerModule,
