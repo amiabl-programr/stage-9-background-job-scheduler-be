@@ -1,0 +1,16 @@
+/node_modules
+/dist
+/build
+/.temp
+.env
+*.js
+!*.config.js
+!*.config.mjs
+*.tsbuildinfo
+*.log
+npm-debug.log*
+pnpm-debug.log*
+coverage
+.nyc_output
+.eslintcache
+.pnpm-store
