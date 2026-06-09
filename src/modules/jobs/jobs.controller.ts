@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { Job } from './entities/job.entity';
 
 @ApiTags('Jobs')
@@ -21,25 +22,33 @@ export class JobsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all jobs' })
-  @ApiResponse({ status: 200, type: [Job] })
-  async findAll(): Promise<Job[]> {
-    return this.jobsService.findAll();
+  @ApiOperation({ summary: 'List jobs with optional filters and pagination' })
+  @ApiResponse({ status: 200 })
+  async findAll(@Query() query: ListJobsQueryDto) {
+    return this.jobsService.findAll(query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get job by ID' })
   @ApiResponse({ status: 200, type: Job })
   @ApiResponse({ status: 404, description: 'Job not found' })
-  async findOne(@Param('id') id: string): Promise<Job | null> {
+  async findOne(@Param('id') id: string): Promise<Job> {
     return this.jobsService.findOne(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a job' })
   @ApiResponse({ status: 200, type: Job })
-  async update(@Param('id') id: string, @Body() dto: UpdateJobDto): Promise<Job | null> {
+  async update(@Param('id') id: string, @Body() dto: UpdateJobDto): Promise<Job> {
     return this.jobsService.update(id, dto);
+  }
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a job (pending or processing only)' })
+  @ApiResponse({ status: 200, type: Job })
+  @ApiResponse({ status: 409, description: 'Job is in a terminal state' })
+  async cancel(@Param('id') id: string): Promise<Job> {
+    return this.jobsService.cancel(id);
   }
 
   @Delete(':id')
