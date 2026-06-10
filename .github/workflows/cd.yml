@@ -58,32 +58,36 @@ jobs:
           key: ${{ env.SSH_PRIVATE_KEY }}
           port: ${{ env.SERVER_PORT }}
           script_stop: true
+          envs: DATABASE_URL
           script: |
             set -e
+
             mkdir -p /var/www/scheduler-api
             cd /var/www/scheduler-api
 
-            # Initialize repository if it doesn't exist
+            # Clone repo if first time
             if [ ! -d .git ]; then
               git clone https://github.com/amiabl-programr/stage-9-background-job-scheduler-be.git .
             fi
 
-            # Pull latest changes
+            # Update code
             git fetch origin main
             git reset --hard origin/main
 
-            # Create .env file
-            cat > .env << 'ENVEOF'
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            ENVEOF
+            # Write env file
+            echo "DATABASE_URL=$DATABASE_URL" > .env
 
-            # Install and build
+            # Install, build, migrate
             pnpm install --frozen-lockfile
             pnpm build
             pnpm migration:run
 
-            # Reload application
-            pm2 reload ecosystem.config.js --update-env
+            # Start or reload PM2
+            if pm2 list | grep -q "scheduler-api"; then
+              pm2 reload scheduler-api --update-env
+            else
+              pm2 start dist/main.js --name scheduler-api
+            fi
 
       - name: Health check
         run: |
