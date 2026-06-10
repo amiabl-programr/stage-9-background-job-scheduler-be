@@ -1,14 +1,22 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Job as BullMQJob } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Job as BullMQJob, Queue } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job, JobStatus } from '../jobs/entities/job.entity';
+import { DeadLetterService } from '../dead-letter/dead-letter.service';
+
+const MAX_RETRIES = 3;
 
 @Processor('jobs')
 export class JobProcessor extends WorkerHost {
   private readonly logger = new Logger(JobProcessor.name);
 
-  constructor(private readonly jobsRepository: JobsRepository) {
+  constructor(
+    private readonly jobsRepository: JobsRepository,
+    private readonly deadLetterService: DeadLetterService,
+    @InjectQueue('jobs') private readonly jobsQueue: Queue,
+  ) {
     super();
   }
 
@@ -35,9 +43,39 @@ export class JobProcessor extends WorkerHost {
       this.logger.log(`Completed job ${dbJob.id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      this.logger.error(`Job ${dbJob.id} failed: ${message}`);
-      throw err;
+      await this.handleFailure(dbJob, message);
     }
+  }
+
+  private async handleFailure(dbJob: Job, error: string): Promise<void> {
+    const newRetryCount = dbJob.retryCount + 1;
+
+    this.logger.warn(
+      `Job ${dbJob.id} failed (attempt ${newRetryCount}/${MAX_RETRIES}): ${error}`,
+    );
+
+    if (newRetryCount >= MAX_RETRIES) {
+      await this.jobsRepository.markFailed(dbJob.id, error);
+      await this.deadLetterService.add(dbJob, error);
+      return;
+    }
+
+    const delayMs = this.computeBackoff(newRetryCount);
+
+    await this.jobsRepository.incrementRetry(dbJob.id, error);
+    await this.jobsQueue.add(
+      'process-job',
+      { jobId: dbJob.id },
+      { delay: delayMs },
+    );
+
+    this.logger.log(`Job ${dbJob.id} re-enqueued with ${delayMs}ms delay`);
+  }
+
+  private computeBackoff(attempt: number): number {
+    const base = Math.pow(5, attempt - 1);
+    const jitter = Math.random() * base * 0.2;
+    return (base + jitter) * 1000;
   }
 
   private async dispatch(dbJob: Job): Promise<void> {
@@ -55,7 +93,9 @@ export class JobProcessor extends WorkerHost {
       throw new Error('Missing required email fields: to, subject');
     }
 
-    await new Promise((r) => setTimeout(r, Math.random() * 500 + 100));
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.random() * 500 + 100),
+    );
 
     if (Math.random() < 0.2) {
       throw new Error('Simulated SMTP delivery failure');
