@@ -19,6 +19,8 @@ const envSchema = z.object({
   ALERT_EMAIL_TO: z.string().email().optional(),
 
   STARVATION_THRESHOLD_MS: z.coerce.number().default(60000),
+
+  APP_URL: z.string().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;
