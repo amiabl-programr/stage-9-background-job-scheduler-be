@@ -1,9 +1,25 @@
 import { Controller, Get, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiProperty,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import Redis from 'ioredis';
+
+class HealthCheckResponse {
+  @ApiProperty({ example: 'ok' })
+  status: string;
+
+  @ApiProperty({ example: 'connected' })
+  db: string;
+
+  @ApiProperty({ example: 'connected' })
+  redis: string;
+}
 
 @ApiTags('Health')
 @Controller('health')
@@ -17,7 +33,8 @@ export class HealthController {
 
   @Get()
   @ApiOperation({ summary: 'Health check: DB and Redis status' })
-  async check(): Promise<{ status: string; db: string; redis: string }> {
+  @ApiOkResponse({ type: HealthCheckResponse })
+  async check(): Promise<HealthCheckResponse> {
     let dbStatus = 'disconnected';
     let redisStatus = 'disconnected';
 
@@ -42,7 +59,10 @@ export class HealthController {
       await redis?.quit();
     }
 
-    const status = dbStatus === 'connected' && redisStatus === 'connected' ? 'ok' : 'degraded';
+    const status =
+      dbStatus === 'connected' && redisStatus === 'connected'
+        ? 'ok'
+        : 'degraded';
 
     return { status, db: dbStatus, redis: redisStatus };
   }
