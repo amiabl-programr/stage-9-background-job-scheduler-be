@@ -39,7 +39,7 @@ export class JobsController {
         summary: 'Send email',
         value: {
           type: 'send_email',
-          payload: { to: 'user@example.com', subject: 'Welcome' },
+          payload: { to: 'user@example.com', subject: 'Welcome', body: 'Welcome to our platform' },
           priority: 2,
         },
       },
@@ -47,7 +47,7 @@ export class JobsController {
         summary: 'Recurring email every minute',
         value: {
           type: 'send_email',
-          payload: { to: 'digest@example.com', subject: 'Digest' },
+          payload: { to: 'digest@example.com', subject: 'Digest', body: 'Your daily digest' },
           recurringInterval: 'every_1_minute',
         },
       },
@@ -55,7 +55,7 @@ export class JobsController {
         summary: 'Scheduled future job',
         value: {
           type: 'send_email',
-          payload: { to: 'future@example.com', subject: 'Later' },
+          payload: { to: 'future@example.com', subject: 'Later', body: 'Scheduled message body' },
           scheduledAt: '2026-06-10T12:00:00.000Z',
         },
       },
