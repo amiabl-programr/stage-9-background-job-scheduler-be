@@ -30,7 +30,9 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          cat > ~/.ssh/id_rsa << 'EOF'
+          ${{ secrets.SSH_PRIVATE_KEY }}
+          EOF
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
@@ -70,3 +72,4 @@ jobs:
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time (UTC):** $(date -u '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
           echo "- **Health check:** ✅ passed" >> $GITHUB_STEP_SUMMARY
+          
