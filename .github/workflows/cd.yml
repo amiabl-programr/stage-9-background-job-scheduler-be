@@ -57,7 +57,6 @@ jobs:
           username: ${{ env.SERVER_USER }}
           key: ${{ env.SSH_PRIVATE_KEY }}
           port: ${{ env.SERVER_PORT }}
-          script_stop: true
           envs: DATABASE_URL
           script: |
             set -e
@@ -88,6 +87,9 @@ jobs:
             else
               pm2 start dist/main.js --name scheduler-api
             fi
+
+      - name: Wait for application startup
+        run: sleep 10
 
       - name: Health check
         run: |
