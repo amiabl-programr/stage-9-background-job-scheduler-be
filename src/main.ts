@@ -10,25 +10,28 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
-  app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+  );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Background Job Scheduler API')
-    .setDescription('Manage, schedule, and monitor background jobs with priority queuing, DAG dependencies, and real-time SSE events.')
+    .setDescription(
+      'Manage, schedule, and monitor background jobs with priority queuing, DAG dependencies, and real-time SSE events.',
+    )
     .setVersion('1.0')
-    .addServer('/api/v1')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   logger.log(`Server running on port ${port}`);
-  logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  logger.log(`Swagger docs at http://localhost:${port}/docs`);
 }
 
 bootstrap().catch((err) => {
