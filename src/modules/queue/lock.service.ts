@@ -12,7 +12,7 @@ export class LockService {
 
   async acquireLock(jobId: string, ttlMs = 30_000): Promise<boolean> {
     const key = `lock:job:${jobId}`;
-    const result = await this.redis.set(key, '1', 'NX', 'PX', ttlMs);
+    const result = await this.redis.set(key, '1', 'PX', ttlMs, 'NX');
     return result === 'OK';
   }
 

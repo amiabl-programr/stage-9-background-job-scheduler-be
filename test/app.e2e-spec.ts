@@ -8,7 +8,7 @@ import request from 'supertest';
 import type { Server } from 'http';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { Job } from '../src/modules/jobs/entities/job.entity';
+import { Job, JobStatus } from '../src/modules/jobs/entities/job.entity';
 import { DeadLetterEntry } from '../src/modules/dead-letter/entities/dead-letter-entry.entity';
 
 interface JobBody {
@@ -176,7 +176,7 @@ describe('Background Job Scheduler (e2e)', () => {
 
       await dataSource
         .getRepository(Job)
-        .update(parentBody.id, { status: 'completed' });
+        .update(parentBody.id, { status: JobStatus.COMPLETED });
 
       const res = await request(appServer)
         .post('/api/v1/jobs')
@@ -309,7 +309,7 @@ describe('Background Job Scheduler (e2e)', () => {
       const jobBody = job.body as JobBody;
 
       await dataSource.getRepository(Job).update(jobBody.id, {
-        status: 'completed',
+        status: JobStatus.COMPLETED,
         completedAt: new Date(),
       });
 
