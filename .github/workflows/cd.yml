@@ -1,11 +1,3 @@
-# Required GitHub secrets:
-#   SERVER_IP       — VPS public IP address
-#   SERVER_USER     — SSH username on the server (e.g. deploy)
-#   SSH_PRIVATE_KEY — Private SSH key (public key must be in ~/.ssh/authorized_keys on server)
-#   SERVER_PORT     — SSH port (usually 22)
-#   APP_DOMAIN      — e.g. stage9.duckdns.org
-#   DATABASE_URL    — PostgreSQL connection string (postgresql://user:password@host:port/database)
-
 name: CD
 
 on:
@@ -30,7 +22,21 @@ jobs:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SERVER_PORT: ${{ secrets.SERVER_PORT }}
       APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+
+      NODE_ENV: ${{ secrets.NODE_ENV }}
+      PORT: ${{ secrets.PORT }}
+
+      DLQ_ALERT_THRESHOLD: ${{ secrets.DLQ_ALERT_THRESHOLD }}
+      STARVATION_THRESHOLD_MS: ${{ secrets.STARVATION_THRESHOLD_MS }}
+
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
 
     steps:
       - name: Checkout code
@@ -48,7 +54,7 @@ jobs:
           ssh -v -p $SERVER_PORT \
             -o StrictHostKeyChecking=accept-new \
             $SERVER_USER@$SERVER_IP \
-            echo "SSH connection successful"
+            "echo SSH connection successful"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -57,14 +63,17 @@ jobs:
           username: ${{ env.SERVER_USER }}
           key: ${{ env.SSH_PRIVATE_KEY }}
           port: ${{ env.SERVER_PORT }}
-          envs: DATABASE_URL
+          script_stop: true
+          envs: DATABASE_URL,REDIS_URL,NODE_ENV,PORT,DLQ_ALERT_THRESHOLD,STARVATION_THRESHOLD_MS,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,ALERT_EMAIL_TO
           script: |
             set -e
 
-            mkdir -p /var/www/scheduler-api
-            cd /var/www/scheduler-api
+            APP_DIR="/var/www/scheduler-api"
 
-            # Clone repo if first time
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            # Clone repo if first deploy
             if [ ! -d .git ]; then
               git clone https://github.com/amiabl-programr/stage-9-background-job-scheduler-be.git .
             fi
@@ -73,28 +82,46 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Write env file
-            echo "DATABASE_URL=$DATABASE_URL" > .env
+            # =========================
+            # ENV FILE (echo method)
+            # =========================
+            echo "NODE_ENV=$NODE_ENV" > .env
+            echo "PORT=$PORT" >> .env
 
-            # Install, build, migrate
+            echo "DATABASE_URL=$DATABASE_URL" >> .env
+            echo "REDIS_URL=$REDIS_URL" >> .env
+
+            echo "DLQ_ALERT_THRESHOLD=$DLQ_ALERT_THRESHOLD" >> .env
+            echo "STARVATION_THRESHOLD_MS=$STARVATION_THRESHOLD_MS" >> .env
+
+            echo "SMTP_HOST=$SMTP_HOST" >> .env
+            echo "SMTP_PORT=$SMTP_PORT" >> .env
+            echo "SMTP_USER=$SMTP_USER" >> .env
+            echo "SMTP_PASS=$SMTP_PASS" >> .env
+            echo "ALERT_EMAIL_TO=$ALERT_EMAIL_TO" >> .env
+
+            # Install dependencies
             pnpm install --frozen-lockfile
+
+            # Build
             pnpm build
+
+            # Run migrations
             pnpm migration:run
 
-            # Start or reload PM2
-            if pm2 list | grep -q "scheduler-api"; then
+            # PM2 deploy (safe reload)
+            if pm2 describe scheduler-api > /dev/null 2>&1; then
               pm2 reload scheduler-api --update-env
             else
               pm2 start dist/main.js --name scheduler-api
             fi
 
-      - name: Wait for application startup
-        run: sleep 10
+            pm2 save
 
       - name: Health check
         run: |
           curl --fail --retry 5 --retry-delay 5 --retry-connrefused \
-            https://$APP_DOMAIN/api/health
+            http://$APP_DOMAIN/api/health
 
       - name: Write deployment summary
         run: |
@@ -102,4 +129,4 @@ jobs:
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time (UTC):** $(date -u '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health check:** ✅ passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ success" >> $GITHUB_STEP_SUMMARY
