@@ -13,6 +13,7 @@ import { DeadLetterModule } from './modules/dead-letter/dead-letter.module';
 import { DagModule } from './modules/dependency-graph/dag.module';
 import { EventsModule } from './modules/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     DagModule,
     EventsModule,
     NotificationsModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

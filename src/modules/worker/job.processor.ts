@@ -7,6 +7,7 @@ import { Job, JobStatus } from '../jobs/entities/job.entity';
 import { DeadLetterService } from '../dead-letter/dead-letter.service';
 import { LockService } from '../queue/lock.service';
 import { EventsService } from '../events/events.service';
+import { EmailService } from '../email/email.service';
 
 const MAX_RETRIES = 3;
 
@@ -19,6 +20,7 @@ export class JobProcessor extends WorkerHost {
     private readonly deadLetterService: DeadLetterService,
     private readonly lockService: LockService,
     private readonly eventsService: EventsService,
+    private readonly emailService: EmailService,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
   ) {
     super();
@@ -167,19 +169,15 @@ export class JobProcessor extends WorkerHost {
   }
 
   private async handleEmail(job: Job): Promise<void> {
-    const { to, subject } = job.payload as { to?: string; subject?: string };
-    if (!to || !subject) {
-      throw new Error('Missing required email fields: to, subject');
+    const { to, subject, body } = job.payload as {
+      to?: string;
+      subject?: string;
+      body?: string;
+    };
+    if (!to || !subject || !body) {
+      throw new Error('Missing required email fields: to, subject, body');
     }
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.random() * 500 + 100),
-    );
-
-    if (Math.random() < 0.2) {
-      throw new Error('Simulated SMTP delivery failure');
-    }
-
-    this.logger.log({ event: 'email.sent', to, subject, jobId: job.id });
+    await this.emailService.sendMail(to, subject, body);
   }
 }
