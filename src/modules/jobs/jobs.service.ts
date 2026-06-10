@@ -3,18 +3,23 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Job, JobStatus } from './entities/job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { JobsRepository } from './jobs.repository';
+import { DagService } from '../dependency-graph/dag.service';
 
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
 
-  constructor(private readonly jobsRepository: JobsRepository) {}
+  constructor(
+    private readonly jobsRepository: JobsRepository,
+    private readonly dagService: DagService,
+  ) {}
 
   async create(dto: CreateJobDto): Promise<Job> {
     const job = this.jobsRepository.create({
@@ -22,6 +27,20 @@ export class JobsService {
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
     });
     const saved = await this.jobsRepository.save(job);
+
+    if (saved.dependsOn && saved.dependsOn.length > 0) {
+      const hasCycle = await this.dagService.detectCycle(
+        saved.id,
+        saved.dependsOn,
+      );
+      if (hasCycle) {
+        await this.jobsRepository.delete(saved.id);
+        throw new BadRequestException(
+          `Cannot create job ${saved.id}: dependency cycle detected`,
+        );
+      }
+    }
+
     this.logger.log(`Job created: ${saved.id}`);
     return saved;
   }

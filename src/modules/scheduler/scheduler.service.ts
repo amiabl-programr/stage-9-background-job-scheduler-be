@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job } from '../jobs/entities/job.entity';
 import { MinHeap } from '../queue/heap/min-heap';
+import { DagService } from '../dependency-graph/dag.service';
 
 @Injectable()
 export class SchedulerService implements OnModuleInit {
@@ -17,6 +18,7 @@ export class SchedulerService implements OnModuleInit {
     private readonly jobsRepository: JobsRepository,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
     private readonly configService: ConfigService,
+    private readonly dagService: DagService,
   ) {}
 
   onModuleInit(): void {
@@ -38,6 +40,8 @@ export class SchedulerService implements OnModuleInit {
       if (eligible.length === 0) return;
 
       for (const job of eligible) {
+        const dependenciesMet = await this.dagService.areDependenciesMet(job);
+        if (!dependenciesMet) continue;
         this.heap.push(job);
       }
 
