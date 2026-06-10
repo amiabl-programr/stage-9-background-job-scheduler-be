@@ -21,7 +21,11 @@ export class CreateJobDto {
   @IsObject()
   payload: Record<string, unknown>;
 
-  @ApiPropertyOptional({ enum: JobPriority, default: JobPriority.MEDIUM, example: JobPriority.MEDIUM })
+  @ApiPropertyOptional({
+    enum: JobPriority,
+    default: JobPriority.MEDIUM,
+    example: JobPriority.MEDIUM,
+  })
   @IsEnum(JobPriority)
   @IsOptional()
   priority?: number;

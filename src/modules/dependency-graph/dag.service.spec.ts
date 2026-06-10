@@ -8,7 +8,12 @@ describe('DagService', () => {
   let mockRepo: Partial<Record<keyof JobsRepository, jest.Mock>>;
 
   const makeJob = (overrides: Partial<Job> = {}): Job =>
-    ({ id: 'job-default', status: JobStatus.PENDING, dependsOn: [], ...overrides }) as Job;
+    ({
+      id: 'job-default',
+      status: JobStatus.PENDING,
+      dependsOn: [],
+      ...overrides,
+    }) as Job;
 
   beforeEach(async () => {
     mockRepo = {
@@ -17,10 +22,7 @@ describe('DagService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DagService,
-        { provide: JobsRepository, useValue: mockRepo },
-      ],
+      providers: [DagService, { provide: JobsRepository, useValue: mockRepo }],
     }).compile();
 
     service = module.get<DagService>(DagService);
@@ -74,9 +76,9 @@ describe('DagService', () => {
       // A -> B -> C is fine
       mockRepo.findById!.mockImplementation((id: string) => {
         const map: Record<string, Job> = {
-          'A': makeJob({ id: 'A', dependsOn: [] }),
-          'B': makeJob({ id: 'B', dependsOn: ['A'] }),
-          'C': makeJob({ id: 'C', dependsOn: ['B'] }),
+          A: makeJob({ id: 'A', dependsOn: [] }),
+          B: makeJob({ id: 'B', dependsOn: ['A'] }),
+          C: makeJob({ id: 'C', dependsOn: ['B'] }),
         };
         return Promise.resolve(map[id] ?? null);
       });
@@ -87,8 +89,8 @@ describe('DagService', () => {
     it('returns true if dependency creates a direct cycle', async () => {
       mockRepo.findById!.mockImplementation((id: string) => {
         const map: Record<string, Job> = {
-          'A': makeJob({ id: 'A', dependsOn: ['B'] }),
-          'B': makeJob({ id: 'B', dependsOn: [] }),
+          A: makeJob({ id: 'A', dependsOn: ['B'] }),
+          B: makeJob({ id: 'B', dependsOn: [] }),
         };
         return Promise.resolve(map[id] ?? null);
       });
@@ -100,9 +102,9 @@ describe('DagService', () => {
     it('returns true if dependency creates an indirect cycle', async () => {
       mockRepo.findById!.mockImplementation((id: string) => {
         const map: Record<string, Job> = {
-          'A': makeJob({ id: 'A', dependsOn: ['B'] }),
-          'B': makeJob({ id: 'B', dependsOn: ['C'] }),
-          'C': makeJob({ id: 'C', dependsOn: ['A'] }),
+          A: makeJob({ id: 'A', dependsOn: ['B'] }),
+          B: makeJob({ id: 'B', dependsOn: ['C'] }),
+          C: makeJob({ id: 'C', dependsOn: ['A'] }),
         };
         return Promise.resolve(map[id] ?? null);
       });
@@ -113,7 +115,9 @@ describe('DagService', () => {
 
     it('returns false when a dependency does not exist', async () => {
       mockRepo.findById!.mockResolvedValue(null);
-      await expect(service.detectCycle('X', ['nonexistent'])).resolves.toBe(false);
+      await expect(service.detectCycle('X', ['nonexistent'])).resolves.toBe(
+        false,
+      );
     });
 
     it('returns false when dependsOn is empty', async () => {
@@ -124,10 +128,10 @@ describe('DagService', () => {
       // A -> B, A -> C, B -> D, C -> D is fine
       mockRepo.findById!.mockImplementation((id: string) => {
         const map: Record<string, Job> = {
-          'A': makeJob({ id: 'A', dependsOn: [] }),
-          'B': makeJob({ id: 'B', dependsOn: ['A'] }),
-          'C': makeJob({ id: 'C', dependsOn: ['A'] }),
-          'D': makeJob({ id: 'D', dependsOn: ['B', 'C'] }),
+          A: makeJob({ id: 'A', dependsOn: [] }),
+          B: makeJob({ id: 'B', dependsOn: ['A'] }),
+          C: makeJob({ id: 'C', dependsOn: ['A'] }),
+          D: makeJob({ id: 'D', dependsOn: ['B', 'C'] }),
         };
         return Promise.resolve(map[id] ?? null);
       });
@@ -138,7 +142,7 @@ describe('DagService', () => {
     it('detects self-loop', async () => {
       mockRepo.findById!.mockImplementation((id: string) => {
         const map: Record<string, Job> = {
-          'A': makeJob({ id: 'A', dependsOn: ['A'] }),
+          A: makeJob({ id: 'A', dependsOn: ['A'] }),
         };
         return Promise.resolve(map[id] ?? null);
       });

@@ -1,5 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
+import {
+  Logger,
+  UnprocessableEntityException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
@@ -48,7 +52,7 @@ async function bootstrap() {
   Logger.log(`Swagger docs at http://localhost:${port}/docs`, 'Bootstrap');
 }
 
-bootstrap().catch((err) => {
-  process.stderr.write(`Server failed to start: ${err.message}\n`);
+bootstrap().catch((err: unknown) => {
+  process.stderr.write(`Server failed to start: ${(err as Error).message}\n`);
   process.exit(1);
 });

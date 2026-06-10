@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, '**']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & TypeCheck
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: pnpm tsc --noEmit
+
+      - name: ESLint
+        run: pnpm lint
+
+  test:
+    name: Test
+    needs: lint-and-typecheck
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: scheduler_test
+          POSTGRES_USER: scheduler_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd "pg_isready -U scheduler_user -d scheduler_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: pnpm migration:run
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://scheduler_user:test_password@localhost:5432/scheduler_test
+          REDIS_URL: redis://localhost:6379
+          DLQ_ALERT_THRESHOLD: 10
+          STARVATION_THRESHOLD_MS: 60000
+          PORT: 3000
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://scheduler_user:test_password@localhost:5432/scheduler_test
+          REDIS_URL: redis://localhost:6379
+          DLQ_ALERT_THRESHOLD: 10
+          STARVATION_THRESHOLD_MS: 60000
+          PORT: 3000
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 3
+
+  build:
+    name: Build
+    needs: lint-and-typecheck
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify build artifacts
+        run: |
+          test -f dist/main.js || (echo "dist/main.js missing" && exit 1)
+          test -f dist/worker.js || (echo "dist/worker.js missing" && exit 1)
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
