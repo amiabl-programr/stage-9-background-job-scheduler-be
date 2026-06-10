@@ -22,8 +22,9 @@ export class DeadLetterController {
   @ApiOperation({ summary: 'Retry a failed job from the dead letter queue' })
   @ApiResponse({ status: 201, type: Job })
   @ApiResponse({ status: 404, description: 'Dead letter entry not found' })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async retry(@Param('id') id: string): Promise<Job> {
-    this.logger.log(`POST /dead-letter/${id}/retry`);
+    this.logger.log({ event: 'dlq.retry_request', dlqEntryId: id });
     return this.deadLetterService.retry(id);
   }
 }
