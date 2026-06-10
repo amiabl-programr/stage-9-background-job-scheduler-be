@@ -33,9 +33,7 @@ export class SchedulerService implements OnModuleInit {
       60000,
     );
 
-    this.logger.log(
-      `Scheduler starting with tick interval ${this.tickIntervalMs}ms`,
-    );
+    this.logger.log({ event: 'scheduler.starting', tickIntervalMs: this.tickIntervalMs, starvationThresholdMs: this.starvationThresholdMs });
     this.tickIntervalHandle = setInterval(() => {
       void this.tick();
     }, this.tickIntervalMs);
@@ -76,9 +74,9 @@ export class SchedulerService implements OnModuleInit {
         },
       );
 
-      this.logger.log(`Enqueued job ${top.id} (${top.type})`);
+      this.logger.log({ event: 'job.enqueued', jobId: top.id, type: top.type });
     } catch (err) {
-      this.logger.error('Scheduler tick failed', err);
+      this.logger.error({ event: 'scheduler.tick_failed', error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -89,12 +87,10 @@ export class SchedulerService implements OnModuleInit {
           this.starvationThresholdMs,
         );
       if (updatedCount > 0) {
-        this.logger.log(
-          `Starvation prevention: updated effectivePriority for ${updatedCount} jobs`,
-        );
+        this.logger.log({ event: 'starvation.priorities_updated', count: updatedCount });
       }
     } catch (err) {
-      this.logger.error('Failed to recalculate effective priorities', err);
+      this.logger.error({ event: 'starvation.recalculation_failed', error: err instanceof Error ? err.message : String(err) });
     }
   }
 

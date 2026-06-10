@@ -43,7 +43,7 @@ export class JobsService {
       }
     }
 
-    this.logger.log(`Job created: ${saved.id}`);
+    this.logger.log({ event: 'job.created', jobId: saved.id, type: saved.type, status: saved.status });
     this.eventsService.broadcast('job.created', {
       jobId: saved.id,
       type: saved.type,
@@ -99,7 +99,7 @@ export class JobsService {
     }
 
     await this.jobsRepository.update(id, { status: JobStatus.CANCELLED });
-    this.logger.log(`Job cancelled: ${id}`);
+    this.logger.log({ event: 'job.cancelled', jobId: id });
     this.eventsService.broadcast('job.cancelled', { jobId: id, status: JobStatus.CANCELLED });
     return this.findOne(id);
   }
@@ -107,6 +107,6 @@ export class JobsService {
   async remove(id: string): Promise<void> {
     const job = await this.findOne(id);
     await this.jobsRepository.delete(job.id);
-    this.logger.log(`Job deleted: ${id}`);
+    this.logger.log({ event: 'job.deleted', jobId: id });
   }
 }

@@ -51,15 +51,11 @@ export class DeadLetterService {
     });
 
     const saved = await this.deadLetterRepository.save(entry);
-    this.logger.log(
-      `Job ${job.id} moved to dead letter queue (retries exhausted)`,
-    );
+    this.logger.log({ event: 'dlq.entry_added', jobId: job.id, error: errorMessage });
 
     const count = await this.deadLetterRepository.count();
     if (count >= this.alertThreshold) {
-      this.logger.warn(
-        `DLQ threshold exceeded: ${count} entries (threshold: ${this.alertThreshold})`,
-      );
+      this.logger.warn({ event: 'dlq.threshold_exceeded', count, threshold: this.alertThreshold });
       this.eventsService.broadcast('dlq.threshold_exceeded', {
         count,
         threshold: this.alertThreshold,
@@ -89,9 +85,7 @@ export class DeadLetterService {
     });
 
     const saved = await this.jobsRepository.save(newJob);
-    this.logger.log(
-      `Dead letter retry: new job ${saved.id} created from entry ${id}`,
-    );
+    this.logger.log({ event: 'dlq.retry', newJobId: saved.id, dlqEntryId: id });
 
     return saved;
   }
