@@ -56,8 +56,8 @@ async function bootstrap() {
   });
 
   app.getHttpAdapter().get('/api/docs-json', (req: Request, res: Response) => {
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const protocol = (req.headers['x-forwarded-proto'] || 'http') as string;
+    const host = (req.headers['x-forwarded-host'] || req.headers.host) as string;
     const serverUrl = `${protocol}://${host}`;
 
     res.json({
