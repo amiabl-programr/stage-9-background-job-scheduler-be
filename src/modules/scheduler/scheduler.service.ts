@@ -12,7 +12,9 @@ export class SchedulerService implements OnModuleInit {
   private readonly logger = new Logger(SchedulerService.name);
   private readonly heap = new MinHeap<Job>(SchedulerService.compareJobs);
   private tickIntervalMs: number;
-  private intervalHandle: ReturnType<typeof setInterval> | null = null;
+  private starvationThresholdMs: number;
+  private tickIntervalHandle: ReturnType<typeof setInterval> | null = null;
+  private agingIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly jobsRepository: JobsRepository,
@@ -26,12 +28,21 @@ export class SchedulerService implements OnModuleInit {
       'SCHEDULER_TICK_MS',
       1000,
     );
+    this.starvationThresholdMs = this.configService.get<number>(
+      'STARVATION_THRESHOLD_MS',
+      60000,
+    );
+
     this.logger.log(
       `Scheduler starting with tick interval ${this.tickIntervalMs}ms`,
     );
-    this.intervalHandle = setInterval(() => {
+    this.tickIntervalHandle = setInterval(() => {
       void this.tick();
     }, this.tickIntervalMs);
+
+    this.agingIntervalHandle = setInterval(() => {
+      void this.recalculatePriorities();
+    }, 10000);
   }
 
   private async tick(): Promise<void> {
@@ -68,6 +79,22 @@ export class SchedulerService implements OnModuleInit {
       this.logger.log(`Enqueued job ${top.id} (${top.type})`);
     } catch (err) {
       this.logger.error('Scheduler tick failed', err);
+    }
+  }
+
+  private async recalculatePriorities(): Promise<void> {
+    try {
+      const updatedCount =
+        await this.jobsRepository.recalculateEffectivePriority(
+          this.starvationThresholdMs,
+        );
+      if (updatedCount > 0) {
+        this.logger.log(
+          `Starvation prevention: updated effectivePriority for ${updatedCount} jobs`,
+        );
+      }
+    } catch (err) {
+      this.logger.error('Failed to recalculate effective priorities', err);
     }
   }
 
