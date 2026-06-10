@@ -16,19 +16,27 @@ export class DagService {
   }
 
   async detectCycle(jobId: string, dependsOn: string[]): Promise<boolean> {
-    const visited = new Set<string>();
+    const onPath = new Set<string>();
 
     const depthFirstSearch = async (currentId: string): Promise<boolean> => {
       if (currentId === jobId) return true;
-      if (visited.has(currentId)) return false;
-      visited.add(currentId);
+      if (onPath.has(currentId)) return true;
+      onPath.add(currentId);
 
       const job = await this.jobsRepository.findById(currentId);
-      if (!job) return false;
+      if (!job) {
+        onPath.delete(currentId);
+        return false;
+      }
 
       for (const dependencyId of job.dependsOn ?? []) {
-        if (await depthFirstSearch(dependencyId)) return true;
+        if (await depthFirstSearch(dependencyId)) {
+          onPath.delete(currentId);
+          return true;
+        }
       }
+
+      onPath.delete(currentId);
       return false;
     };
 
