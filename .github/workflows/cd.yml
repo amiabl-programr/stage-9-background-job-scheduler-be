@@ -1,0 +1,58 @@
+# Required GitHub secrets:
+#   SERVER_IP       — VPS public IP address
+#   SERVER_USER     — SSH username on the server (e.g. deploy)
+#   SSH_PRIVATE_KEY — Private SSH key (public key must be in ~/.ssh/authorized_keys on server)
+#   SERVER_PORT     — SSH port (usually 22)
+#   APP_DOMAIN      — e.g. stage9.duckdns.org
+
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            cd /var/www/scheduler-api
+            git pull origin main
+            pnpm install --frozen-lockfile
+            pnpm build
+            pnpm migration:run
+            pm2 reload ecosystem.config.js --update-env
+
+      - name: Health check
+        run: |
+          curl --fail --retry 5 --retry-delay 5 --retry-connrefused \
+            https://${{ secrets.APP_DOMAIN }}/api/health
+
+      - name: Write deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time (UTC):** $(date -u '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health check:** ✅ passed" >> $GITHUB_STEP_SUMMARY
