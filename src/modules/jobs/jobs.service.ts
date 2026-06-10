@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { Job, JobStatus } from './entities/job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
@@ -21,7 +26,9 @@ export class JobsService {
     return saved;
   }
 
-  async findAll(query: ListJobsQueryDto): Promise<{ data: Job[]; total: number; page: number; limit: number }> {
+  async findAll(
+    query: ListJobsQueryDto,
+  ): Promise<{ data: Job[]; total: number; page: number; limit: number }> {
     const { status, type, priority, page = 1, limit = 20 } = query;
 
     const qb = this.jobsRepository.createQueryBuilder('job');
@@ -54,8 +61,14 @@ export class JobsService {
   async cancel(id: string): Promise<Job> {
     const job = await this.findOne(id);
 
-    if (job.status === JobStatus.COMPLETED || job.status === JobStatus.FAILED || job.status === JobStatus.CANCELLED) {
-      throw new ConflictException(`Cannot cancel job ${id}: already in terminal state ${job.status}`);
+    if (
+      job.status === JobStatus.COMPLETED ||
+      job.status === JobStatus.FAILED ||
+      job.status === JobStatus.CANCELLED
+    ) {
+      throw new ConflictException(
+        `Cannot cancel job ${id}: already in terminal state ${job.status}`,
+      );
     }
 
     await this.jobsRepository.update(id, { status: JobStatus.CANCELLED });
