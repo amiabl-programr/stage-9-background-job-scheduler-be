@@ -78,10 +78,7 @@ export class JobsController {
 
   @Get('events')
   @ApiOperation({ summary: 'SSE stream for real-time job updates' })
-  async events(
-    @Req() request: Request,
-    @Res() response: Response,
-  ): Promise<void> {
+  events(@Req() request: Request, @Res() response: Response): void {
     const clientId = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     this.eventsService.addClient(clientId, response);
     this.logger.log({ event: 'sse.client_connected', clientId });

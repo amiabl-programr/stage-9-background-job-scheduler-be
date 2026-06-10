@@ -15,7 +15,7 @@ describe('EventsService', () => {
 
   it('adds a client and broadcasts to it', () => {
     const write = jest.fn();
-    const on = jest.fn((_event: string, _cb: () => void) => {});
+    const on = jest.fn();
     const mockRes = {
       setHeader: jest.fn(),
       flushHeaders: jest.fn(),
@@ -100,9 +100,10 @@ describe('EventsService', () => {
 
   it('sets correct SSE headers', () => {
     const setHeader = jest.fn();
+    const flushHeaders = jest.fn();
     const mockRes = {
       setHeader,
-      flushHeaders: jest.fn(),
+      flushHeaders,
       write: jest.fn(),
       on: jest.fn(),
     } as unknown as Response;
@@ -112,6 +113,6 @@ describe('EventsService', () => {
     expect(setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
     expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'no-cache');
     expect(setHeader).toHaveBeenCalledWith('Connection', 'keep-alive');
-    expect(mockRes.flushHeaders).toHaveBeenCalled();
+    expect(flushHeaders).toHaveBeenCalled();
   });
 });
