@@ -9,7 +9,7 @@ import { QueueModule } from './modules/queue/queue.module';
 import { WorkerModule } from './modules/worker/worker.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { DeadLetterModule } from './modules/dead-letter/dead-letter.module';
-import { DependenciesModule } from './modules/dependencies/dependencies.module';
+import { DagModule } from './modules/dependency-graph/dag.module';
 import { EventsModule } from './modules/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
@@ -39,7 +39,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     WorkerModule,
     SchedulerModule,
     DeadLetterModule,
-    DependenciesModule,
+    DagModule,
     EventsModule,
     NotificationsModule,
   ],
