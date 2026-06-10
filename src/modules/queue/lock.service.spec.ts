@@ -1,18 +1,23 @@
+import { ConfigService } from '@nestjs/config';
 import { LockService } from './lock.service';
 
 describe('LockService', () => {
   let service: LockService;
+  let redis: { quit: () => Promise<void> };
 
   beforeAll(() => {
-    service = new LockService({ get: () => process.env.REDIS_URL ?? 'redis://localhost:6379' } as any);
+    const config = new ConfigService({
+      REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    });
+    service = new LockService(config);
+    redis = (service as unknown as { redis: { quit: () => Promise<void> } })
+      .redis;
   });
 
   afterAll(async () => {
     await service.releaseLock('lock-a');
     await service.releaseLock('lock-b');
     await service.releaseLock('lock-expire');
-    // Force close the ioredis connection
-    const redis = (service as any).redis as { quit: () => Promise<void> };
     await redis.quit();
   });
 

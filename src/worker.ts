@@ -12,7 +12,7 @@ async function bootstrap() {
   Logger.log('Worker started', 'Worker');
 }
 
-bootstrap().catch((err) => {
-  process.stderr.write(`Worker failed to start: ${err.message}\n`);
+bootstrap().catch((err: unknown) => {
+  process.stderr.write(`Worker failed to start: ${(err as Error).message}\n`);
   process.exit(1);
 });

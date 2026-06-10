@@ -33,7 +33,11 @@ export class SchedulerService implements OnModuleInit {
       60000,
     );
 
-    this.logger.log({ event: 'scheduler.starting', tickIntervalMs: this.tickIntervalMs, starvationThresholdMs: this.starvationThresholdMs });
+    this.logger.log({
+      event: 'scheduler.starting',
+      tickIntervalMs: this.tickIntervalMs,
+      starvationThresholdMs: this.starvationThresholdMs,
+    });
     this.tickIntervalHandle = setInterval(() => {
       void this.tick();
     }, this.tickIntervalMs);
@@ -76,7 +80,10 @@ export class SchedulerService implements OnModuleInit {
 
       this.logger.log({ event: 'job.enqueued', jobId: top.id, type: top.type });
     } catch (err) {
-      this.logger.error({ event: 'scheduler.tick_failed', error: err instanceof Error ? err.message : String(err) });
+      this.logger.error({
+        event: 'scheduler.tick_failed',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -87,10 +94,16 @@ export class SchedulerService implements OnModuleInit {
           this.starvationThresholdMs,
         );
       if (updatedCount > 0) {
-        this.logger.log({ event: 'starvation.priorities_updated', count: updatedCount });
+        this.logger.log({
+          event: 'starvation.priorities_updated',
+          count: updatedCount,
+        });
       }
     } catch (err) {
-      this.logger.error({ event: 'starvation.recalculation_failed', error: err instanceof Error ? err.message : String(err) });
+      this.logger.error({
+        event: 'starvation.recalculation_failed',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
