@@ -46,7 +46,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_DB: scheduler_test
           POSTGRES_USER: scheduler_user
@@ -60,7 +60,7 @@ jobs:
           - 5432:5432
 
       redis:
-        image: redis:latest
+        image: redis:7-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
