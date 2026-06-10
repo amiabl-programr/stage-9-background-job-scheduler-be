@@ -16,7 +16,7 @@ export class CreateJobDto {
 
   @ApiProperty({
     description: 'Job payload data',
-    example: { to: 'user@example.com', subject: 'Welcome' },
+    example: { to: 'user@example.com', subject: 'Welcome', body: 'Welcome to our platform' },
   })
   @IsObject()
   payload: Record<string, unknown>;

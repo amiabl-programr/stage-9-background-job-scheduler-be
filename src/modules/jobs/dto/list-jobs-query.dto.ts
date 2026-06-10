@@ -15,7 +15,8 @@ export class ListJobsQueryDto {
   type?: string;
 
   @ApiPropertyOptional({ enum: JobPriority, example: JobPriority.MEDIUM })
-  @IsEnum(JobPriority)
+  @Type(() => Number)
+  @IsEnum(JobPriority, { message: 'priority must be one of: HIGH (1), MEDIUM (2), LOW (3)' })
   @IsOptional()
   priority?: JobPriority;
 

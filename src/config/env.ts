@@ -12,10 +12,10 @@ const envSchema = z.object({
 
   DLQ_ALERT_THRESHOLD: z.coerce.number().default(10),
 
-  SMTP_HOST: z.string().optional(),
+  SMTP_HOST: z.string(),
   SMTP_PORT: z.coerce.number().default(587),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  SMTP_USER: z.string(),
+  SMTP_PASS: z.string(),
   ALERT_EMAIL_TO: z.string().email().optional(),
 
   STARVATION_THRESHOLD_MS: z.coerce.number().default(60000),

@@ -6,6 +6,7 @@ import { Job } from '../jobs/entities/job.entity';
 import { DeadLetterModule } from '../dead-letter/dead-letter.module';
 import { QueueModule } from '../queue/queue.module';
 import { EventsModule } from '../events/events.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { EventsModule } from '../events/events.module';
     DeadLetterModule,
     QueueModule,
     EventsModule,
+    EmailModule,
   ],
   providers: [JobProcessor, JobsRepository],
 })
