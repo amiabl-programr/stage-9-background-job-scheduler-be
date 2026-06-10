@@ -11,7 +11,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
@@ -32,7 +32,37 @@ export class JobsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new job' })
+  @ApiBody({
+    type: CreateJobDto,
+    examples: {
+      email: {
+        summary: 'Send email',
+        value: {
+          type: 'send_email',
+          payload: { to: 'user@example.com', subject: 'Welcome' },
+          priority: 2,
+        },
+      },
+      recurring: {
+        summary: 'Recurring email every minute',
+        value: {
+          type: 'send_email',
+          payload: { to: 'digest@example.com', subject: 'Digest' },
+          recurringInterval: 'every_1_minute',
+        },
+      },
+      scheduled: {
+        summary: 'Scheduled future job',
+        value: {
+          type: 'send_email',
+          payload: { to: 'future@example.com', subject: 'Later' },
+          scheduledAt: '2026-06-10T12:00:00.000Z',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, type: Job })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async create(@Body() dto: CreateJobDto): Promise<Job> {
     this.logger.log({ event: 'job.create_request', type: dto.type });
     return this.jobsService.create(dto);
@@ -41,6 +71,7 @@ export class JobsController {
   @Get()
   @ApiOperation({ summary: 'List jobs with optional filters and pagination' })
   @ApiResponse({ status: 200 })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async findAll(@Query() query: ListJobsQueryDto) {
     return this.jobsService.findAll(query);
   }
@@ -64,6 +95,7 @@ export class JobsController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update a job' })
   @ApiResponse({ status: 200, type: Job })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateJobDto,
