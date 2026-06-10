@@ -27,11 +27,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
       - name: Test SSH connectivity
         run: |
-          ssh -v -i <(echo "${{ secrets.SSH_PRIVATE_KEY }}") \
-            -p ${{ secrets.SERVER_PORT }} \
-            -o StrictHostKeyChecking=no \
+          ssh -v -p ${{ secrets.SERVER_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
             echo "SSH connection successful"
 
