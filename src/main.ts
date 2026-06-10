@@ -1,3 +1,4 @@
+import { type Request, type Response } from 'express';
 import { NestFactory } from '@nestjs/core';
 import {
   Logger,
@@ -44,11 +45,26 @@ async function bootstrap() {
       'Manage, schedule, and monitor background jobs with priority queuing, DAG dependencies, and real-time SSE events.',
     )
     .setVersion('1.0')
-    .addServer(env.APP_URL, env.NODE_ENV === 'production' ? 'Production' : 'Local development')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      url: '/api/docs-json',
+    },
+  });
+
+  app.getHttpAdapter().get('/api/docs-json', (req: Request, res: Response) => {
+    const protocol = (req.headers['x-forwarded-proto'] || 'http') as string;
+    const host = (req.headers['x-forwarded-host'] || req.headers.host) as string;
+    const serverUrl = `${protocol}://${host}`;
+
+    res.json({
+      ...document,
+      servers: [{ url: serverUrl, description: 'Server' }],
+    });
+  });
 
   await app.listen(env.PORT);
   Logger.log(`Server running on port ${env.PORT}`, 'Bootstrap');
