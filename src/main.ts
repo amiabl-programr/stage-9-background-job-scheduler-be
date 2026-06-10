@@ -1,4 +1,3 @@
-import { type Request, type Response } from 'express';
 import { NestFactory } from '@nestjs/core';
 import {
   Logger,
@@ -49,22 +48,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      url: '/api/docs-json',
-    },
-  });
-
-  app.getHttpAdapter().get('/api/docs-json', (req: Request, res: Response) => {
-    const protocol = (req.headers['x-forwarded-proto'] || 'http') as string;
-    const host = (req.headers['x-forwarded-host'] || req.headers.host) as string;
-    const serverUrl = `${protocol}://${host}`;
-
-    res.json({
-      ...document,
-      servers: [{ url: serverUrl, description: 'Server' }],
-    });
-  });
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(env.PORT);
   Logger.log(`Server running on port ${env.PORT}`, 'Bootstrap');
