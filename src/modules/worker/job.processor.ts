@@ -174,10 +174,14 @@ export class JobProcessor extends WorkerHost {
       subject?: string;
       body?: string;
     };
-    if (!to || !subject || !body) {
-      throw new Error('Missing required email fields: to, subject, body');
+    if (!to || !subject) {
+      throw new Error('Missing required email fields: to, subject');
     }
 
-    await this.emailService.sendMail(to, subject, body);
+    await this.emailService.sendMail(
+      to,
+      subject,
+      body ?? `This is an automated notification regarding job ${job.id} of type ${job.type}.`,
+    );
   }
 }
