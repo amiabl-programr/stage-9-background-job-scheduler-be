@@ -1,98 +1,120 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Background Job Scheduler
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS-based background job scheduler with priority queuing, DAG dependencies, retry logic, dead-letter queue, and real-time SSE updates.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Architecture
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ pnpm install
+```
+API (:3000) ──► PostgreSQL ──► Scheduler (heap) ──► BullMQ (Redis) ──► Worker
 ```
 
-## Compile and run the project
+- **API** — REST endpoints for managing jobs
+- **Scheduler** — tick-based loop, uses a min-heap to pick the highest-priority eligible job
+- **Worker** — separate process consuming the BullMQ `jobs` queue
+- **BullMQ** — Redis-backed job queue
+- **PostgreSQL** — job persistence via TypeORM
+
+## Features
+
+| Feature | Status |
+|---------|--------|
+| Job CRUD (create, list, get, update, delete) | ✅ |
+| Priority queuing (high / medium / low) | ✅ |
+| Future scheduled jobs (`scheduledAt`) | ✅ |
+| Recurring jobs (`every_1_minute`, `every_5_minutes`, `every_1_hour`) | ✅ |
+| Min-heap priority queue | ✅ |
+| DAG dependency resolution (`dependsOn`) | ✅ |
+| Cycle detection on job creation | ✅ |
+| Worker with email simulation handler | ✅ |
+| Exponential backoff retry (1s → 5s → 25s) with jitter | ✅ |
+| Dead-letter queue (DLQ) with manual retry | ✅ |
+| Starvation prevention (aging-based `effectivePriority`) | ✅ |
+| Health check (`GET /api/health`) | ✅ |
+| Swagger docs (`GET /docs`) | ✅ |
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+- PostgreSQL
+- Redis
+
+### Installation
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
 ```
 
-## Run tests
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Environment |
+| `PORT` | `3000` | API listen port |
+| `DATABASE_URL` | — | PostgreSQL connection string |
+| `REDIS_URL` | — | Redis connection string |
+| `SCHEDULER_TICK_MS` | `1000` | Scheduler tick interval (ms) |
+| `STARVATION_THRESHOLD_MS` | `60000` | Time before a job ages 1 priority level |
+
+### Running
 
 ```bash
-# unit tests
-$ pnpm run test
+# API server
+pnpm start:dev
 
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+# Worker (separate terminal)
+pnpm ts-node src/worker.ts
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Database
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# Run migrations
+pnpm migration:run
+
+# Seed sample data
+pnpm seed
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## API Endpoints
 
-## Resources
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Health check (DB + Redis) |
+| `POST` | `/api/v1/jobs` | Create a job |
+| `GET` | `/api/v1/jobs` | List jobs (filtered, paginated) |
+| `GET` | `/api/v1/jobs/:id` | Get job by ID |
+| `PATCH` | `/api/v1/jobs/:id` | Update a job |
+| `PATCH` | `/api/v1/jobs/:id/cancel` | Cancel a job |
+| `DELETE` | `/api/v1/jobs/:id` | Delete a job |
+| `GET` | `/api/v1/dead-letter` | List DLQ entries |
+| `POST` | `/api/v1/dead-letter/:id/retry` | Retry from DLQ |
+| `GET` | `/docs` | Swagger documentation |
 
-Check out a few resources that may come in handy when working with NestJS:
+## Starvation Prevention
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Low-priority jobs age over time. Every 10 seconds, the scheduler recalculates `effectivePriority` for all `PENDING` jobs:
 
-## Support
+```
+effectivePriority = max(0, priority - floor(ageMs / STARVATION_THRESHOLD_MS))
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Default threshold: **60 seconds**. A priority-3 (LOW) job waiting 2 minutes gets `effectivePriority = 1` — same as HIGH priority.
 
-## Stay in touch
+## Retry Logic
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Jobs are retried up to 3 times with exponential backoff + jitter:
+
+| Attempt | Base Delay | With Jitter |
+|---------|------------|-------------|
+| 1 | 1s | ~1–1.2s |
+| 2 | 5s | ~5–6s |
+| 3 | 25s | ~25–30s |
+
+After 3 failures, the job is marked `FAILED` and moved to the dead-letter queue.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT

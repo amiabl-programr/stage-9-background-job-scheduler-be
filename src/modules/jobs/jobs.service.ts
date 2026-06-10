@@ -3,18 +3,25 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Job, JobStatus } from './entities/job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { JobsRepository } from './jobs.repository';
+import { DagService } from '../dependency-graph/dag.service';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
 
-  constructor(private readonly jobsRepository: JobsRepository) {}
+  constructor(
+    private readonly jobsRepository: JobsRepository,
+    private readonly dagService: DagService,
+    private readonly eventsService: EventsService,
+  ) {}
 
   async create(dto: CreateJobDto): Promise<Job> {
     const job = this.jobsRepository.create({
@@ -22,7 +29,27 @@ export class JobsService {
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
     });
     const saved = await this.jobsRepository.save(job);
-    this.logger.log(`Job created: ${saved.id}`);
+
+    if (saved.dependsOn && saved.dependsOn.length > 0) {
+      const hasCycle = await this.dagService.detectCycle(
+        saved.id,
+        saved.dependsOn,
+      );
+      if (hasCycle) {
+        await this.jobsRepository.delete(saved.id);
+        throw new BadRequestException(
+          `Cannot create job ${saved.id}: dependency cycle detected`,
+        );
+      }
+    }
+
+    this.logger.log({ event: 'job.created', jobId: saved.id, type: saved.type, status: saved.status });
+    this.eventsService.broadcast('job.created', {
+      jobId: saved.id,
+      type: saved.type,
+      priority: saved.priority,
+      status: saved.status,
+    });
     return saved;
   }
 
@@ -72,13 +99,14 @@ export class JobsService {
     }
 
     await this.jobsRepository.update(id, { status: JobStatus.CANCELLED });
-    this.logger.log(`Job cancelled: ${id}`);
+    this.logger.log({ event: 'job.cancelled', jobId: id });
+    this.eventsService.broadcast('job.cancelled', { jobId: id, status: JobStatus.CANCELLED });
     return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
     const job = await this.findOne(id);
     await this.jobsRepository.delete(job.id);
-    this.logger.log(`Job deleted: ${id}`);
+    this.logger.log({ event: 'job.deleted', jobId: id });
   }
 }

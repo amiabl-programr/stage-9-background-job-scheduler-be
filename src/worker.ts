@@ -1,15 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { WorkerAppModule } from './worker.module';
 
 async function bootstrap() {
-  const logger = new Logger('Worker');
-  const app = await NestFactory.createApplicationContext(WorkerAppModule);
+  const app = await NestFactory.createApplicationContext(WorkerAppModule, {
+    bufferLogs: true,
+  });
+  app.useLogger(app.get(PinoLogger));
   app.enableShutdownHooks();
-  logger.log('Worker started');
+  Logger.log('Worker started', 'Worker');
 }
 
 bootstrap().catch((err) => {
-  console.error('Worker failed to start', err);
+  process.stderr.write(`Worker failed to start: ${err.message}\n`);
   process.exit(1);
 });

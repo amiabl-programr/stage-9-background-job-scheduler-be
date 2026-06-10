@@ -47,4 +47,26 @@ export class JobsRepository extends Repository<Job> {
       lastError: error,
     });
   }
+
+  async recalculateEffectivePriority(
+    starvationThresholdMs: number,
+  ): Promise<number> {
+    const pendingJobs = await this.find({
+      where: { status: JobStatus.PENDING },
+    });
+
+    let updatedCount = 0;
+    for (const job of pendingJobs) {
+      const ageMs = Date.now() - job.createdAt.getTime();
+      const agingBoost = Math.floor(ageMs / starvationThresholdMs);
+      const newPriority = Math.max(0, job.priority - agingBoost);
+
+      if (newPriority !== job.effectivePriority) {
+        await this.update(job.id, { effectivePriority: newPriority });
+        updatedCount++;
+      }
+    }
+
+    return updatedCount;
+  }
 }

@@ -5,18 +5,22 @@ import { ConfigService } from '@nestjs/config';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job } from '../jobs/entities/job.entity';
 import { MinHeap } from '../queue/heap/min-heap';
+import { DagService } from '../dependency-graph/dag.service';
 
 @Injectable()
 export class SchedulerService implements OnModuleInit {
   private readonly logger = new Logger(SchedulerService.name);
   private readonly heap = new MinHeap<Job>(SchedulerService.compareJobs);
   private tickIntervalMs: number;
-  private intervalHandle: ReturnType<typeof setInterval> | null = null;
+  private starvationThresholdMs: number;
+  private tickIntervalHandle: ReturnType<typeof setInterval> | null = null;
+  private agingIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly jobsRepository: JobsRepository,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
     private readonly configService: ConfigService,
+    private readonly dagService: DagService,
   ) {}
 
   onModuleInit(): void {
@@ -24,12 +28,19 @@ export class SchedulerService implements OnModuleInit {
       'SCHEDULER_TICK_MS',
       1000,
     );
-    this.logger.log(
-      `Scheduler starting with tick interval ${this.tickIntervalMs}ms`,
+    this.starvationThresholdMs = this.configService.get<number>(
+      'STARVATION_THRESHOLD_MS',
+      60000,
     );
-    this.intervalHandle = setInterval(() => {
+
+    this.logger.log({ event: 'scheduler.starting', tickIntervalMs: this.tickIntervalMs, starvationThresholdMs: this.starvationThresholdMs });
+    this.tickIntervalHandle = setInterval(() => {
       void this.tick();
     }, this.tickIntervalMs);
+
+    this.agingIntervalHandle = setInterval(() => {
+      void this.recalculatePriorities();
+    }, 10000);
   }
 
   private async tick(): Promise<void> {
@@ -38,6 +49,8 @@ export class SchedulerService implements OnModuleInit {
       if (eligible.length === 0) return;
 
       for (const job of eligible) {
+        const dependenciesMet = await this.dagService.areDependenciesMet(job);
+        if (!dependenciesMet) continue;
         this.heap.push(job);
       }
 
@@ -61,9 +74,23 @@ export class SchedulerService implements OnModuleInit {
         },
       );
 
-      this.logger.log(`Enqueued job ${top.id} (${top.type})`);
+      this.logger.log({ event: 'job.enqueued', jobId: top.id, type: top.type });
     } catch (err) {
-      this.logger.error('Scheduler tick failed', err);
+      this.logger.error({ event: 'scheduler.tick_failed', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  private async recalculatePriorities(): Promise<void> {
+    try {
+      const updatedCount =
+        await this.jobsRepository.recalculateEffectivePriority(
+          this.starvationThresholdMs,
+        );
+      if (updatedCount > 0) {
+        this.logger.log({ event: 'starvation.priorities_updated', count: updatedCount });
+      }
+    } catch (err) {
+      this.logger.error({ event: 'starvation.recalculation_failed', error: err instanceof Error ? err.message : String(err) });
     }
   }
 
