@@ -8,20 +8,27 @@ import {
   Delete,
   Query,
   Logger,
+  Req,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { Job } from './entities/job.entity';
+import { EventsService } from '../events/events.service';
 
 @ApiTags('Jobs')
 @Controller('jobs')
 export class JobsController {
   private readonly logger = new Logger(JobsController.name);
 
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly eventsService: EventsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new job' })
@@ -36,6 +43,14 @@ export class JobsController {
   @ApiResponse({ status: 200 })
   async findAll(@Query() query: ListJobsQueryDto) {
     return this.jobsService.findAll(query);
+  }
+
+  @Get('events')
+  @ApiOperation({ summary: 'SSE stream for real-time job updates' })
+  async events(@Req() request: Request, @Res() response: Response): Promise<void> {
+    const clientId = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    this.eventsService.addClient(clientId, response);
+    this.logger.log(`SSE client connected: ${clientId}`);
   }
 
   @Get(':id')

@@ -5,9 +5,10 @@ import { JobsService } from './jobs.service';
 import { JobsRepository } from './jobs.repository';
 import { Job } from './entities/job.entity';
 import { DagModule } from '../dependency-graph/dag.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Job]), forwardRef(() => DagModule)],
+  imports: [TypeOrmModule.forFeature([Job]), forwardRef(() => DagModule), EventsModule],
   controllers: [JobsController],
   providers: [JobsService, JobsRepository],
   exports: [JobsService, JobsRepository],

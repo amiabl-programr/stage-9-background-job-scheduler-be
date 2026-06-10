@@ -5,6 +5,8 @@ import { Logger } from '@nestjs/common';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job, JobStatus } from '../jobs/entities/job.entity';
 import { DeadLetterService } from '../dead-letter/dead-letter.service';
+import { LockService } from '../queue/lock.service';
+import { EventsService } from '../events/events.service';
 
 const MAX_RETRIES = 3;
 
@@ -15,6 +17,8 @@ export class JobProcessor extends WorkerHost {
   constructor(
     private readonly jobsRepository: JobsRepository,
     private readonly deadLetterService: DeadLetterService,
+    private readonly lockService: LockService,
+    private readonly eventsService: EventsService,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
   ) {
     super();
@@ -34,17 +38,36 @@ export class JobProcessor extends WorkerHost {
       return;
     }
 
-    await this.jobsRepository.markProcessing(dbJob.id);
-    this.logger.log(`Processing job ${dbJob.id} (${dbJob.type})`);
+    const acquired = await this.lockService.acquireLock(dbJob.id);
+    if (!acquired) {
+      this.logger.warn(`Job ${dbJob.id} is locked by another worker, skipping`);
+      return;
+    }
 
     try {
+      await this.jobsRepository.markProcessing(dbJob.id);
+      this.logger.log(`Processing job ${dbJob.id} (${dbJob.type})`);
+      this.eventsService.broadcast('job.started', {
+        jobId: dbJob.id,
+        type: dbJob.type,
+        status: JobStatus.PROCESSING,
+      });
+
       await this.dispatch(dbJob);
       await this.jobsRepository.markCompleted(dbJob.id);
       this.logger.log(`Completed job ${dbJob.id}`);
+      this.eventsService.broadcast('job.completed', {
+        jobId: dbJob.id,
+        type: dbJob.type,
+        status: JobStatus.COMPLETED,
+      });
+
       await this.rescheduleIfRecurring(dbJob);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       await this.handleFailure(dbJob, message);
+    } finally {
+      await this.lockService.releaseLock(dbJob.id);
     }
   }
 
@@ -58,6 +81,11 @@ export class JobProcessor extends WorkerHost {
     if (newRetryCount >= MAX_RETRIES) {
       await this.jobsRepository.markFailed(dbJob.id, error);
       await this.deadLetterService.add(dbJob, error);
+      this.eventsService.broadcast('job.failed', {
+        jobId: dbJob.id,
+        error,
+        status: JobStatus.FAILED,
+      });
       return;
     }
 
@@ -71,6 +99,13 @@ export class JobProcessor extends WorkerHost {
     );
 
     this.logger.log(`Job ${dbJob.id} re-enqueued with ${delayMs}ms delay`);
+    this.eventsService.broadcast('job.retry', {
+      jobId: dbJob.id,
+      attempt: newRetryCount,
+      maxRetries: MAX_RETRIES,
+      delayMs,
+      error,
+    });
   }
 
   private async rescheduleIfRecurring(job: Job): Promise<void> {

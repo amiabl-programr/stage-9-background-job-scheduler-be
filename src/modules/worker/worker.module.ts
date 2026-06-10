@@ -1,16 +1,18 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JobProcessor } from './job.processor';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job } from '../jobs/entities/job.entity';
 import { DeadLetterModule } from '../dead-letter/dead-letter.module';
+import { QueueModule } from '../queue/queue.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: 'jobs' }),
     TypeOrmModule.forFeature([Job]),
     DeadLetterModule,
+    QueueModule,
+    EventsModule,
   ],
   providers: [JobProcessor, JobsRepository],
 })

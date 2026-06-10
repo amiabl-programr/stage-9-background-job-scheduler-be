@@ -6,12 +6,14 @@ import { DeadLetterRepository } from './dead-letter.repository';
 import { DeadLetterEntry } from './entities/dead-letter-entry.entity';
 import { QueueModule } from '../queue/queue.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DeadLetterEntry]),
     QueueModule,
     JobsModule,
+    EventsModule,
   ],
   controllers: [DeadLetterController],
   providers: [DeadLetterService, DeadLetterRepository],
