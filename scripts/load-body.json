@@ -1,0 +1,8 @@
+{
+    "type": "send_email",
+    "payload": {
+        "to": "test@test.com",
+        "subject": "load test",
+        "body": "hello"
+    }
+}
