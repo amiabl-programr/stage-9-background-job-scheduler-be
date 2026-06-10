@@ -1,10 +1,12 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ConfigService } from '@nestjs/config';
 import { DeadLetterRepository } from './dead-letter.repository';
 import { DeadLetterEntry } from './entities/dead-letter-entry.entity';
 import { JobsRepository } from '../jobs/jobs.repository';
 import { Job, JobPriority, JobStatus } from '../jobs/entities/job.entity';
+import { EventsService } from '../events/events.service';
 
 interface JobSnapshot {
   id: string;
@@ -20,11 +22,17 @@ interface JobSnapshot {
 export class DeadLetterService {
   private readonly logger = new Logger(DeadLetterService.name);
 
+  private readonly alertThreshold: number;
+
   constructor(
     private readonly deadLetterRepository: DeadLetterRepository,
     private readonly jobsRepository: JobsRepository,
+    private readonly eventsService: EventsService,
+    private readonly configService: ConfigService,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
-  ) {}
+  ) {
+    this.alertThreshold = this.configService.get<number>('DLQ_ALERT_THRESHOLD', 10);
+  }
 
   async add(job: Job, errorMessage: string): Promise<DeadLetterEntry> {
     const entry = this.deadLetterRepository.create({
@@ -46,6 +54,19 @@ export class DeadLetterService {
     this.logger.log(
       `Job ${job.id} moved to dead letter queue (retries exhausted)`,
     );
+
+    const count = await this.deadLetterRepository.count();
+    if (count >= this.alertThreshold) {
+      this.logger.warn(
+        `DLQ threshold exceeded: ${count} entries (threshold: ${this.alertThreshold})`,
+      );
+      this.eventsService.broadcast('dlq.threshold_exceeded', {
+        count,
+        threshold: this.alertThreshold,
+        lastJobId: job.id,
+      });
+    }
+
     return saved;
   }
 

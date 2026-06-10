@@ -11,6 +11,7 @@ import { UpdateJobDto } from './dto/update-job.dto';
 import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { JobsRepository } from './jobs.repository';
 import { DagService } from '../dependency-graph/dag.service';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class JobsService {
@@ -19,6 +20,7 @@ export class JobsService {
   constructor(
     private readonly jobsRepository: JobsRepository,
     private readonly dagService: DagService,
+    private readonly eventsService: EventsService,
   ) {}
 
   async create(dto: CreateJobDto): Promise<Job> {
@@ -42,6 +44,12 @@ export class JobsService {
     }
 
     this.logger.log(`Job created: ${saved.id}`);
+    this.eventsService.broadcast('job.created', {
+      jobId: saved.id,
+      type: saved.type,
+      priority: saved.priority,
+      status: saved.status,
+    });
     return saved;
   }
 
@@ -92,6 +100,7 @@ export class JobsService {
 
     await this.jobsRepository.update(id, { status: JobStatus.CANCELLED });
     this.logger.log(`Job cancelled: ${id}`);
+    this.eventsService.broadcast('job.cancelled', { jobId: id, status: JobStatus.CANCELLED });
     return this.findOne(id);
   }
 
