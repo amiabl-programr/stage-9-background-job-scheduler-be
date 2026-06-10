@@ -43,7 +43,12 @@ export class JobsService {
       }
     }
 
-    this.logger.log({ event: 'job.created', jobId: saved.id, type: saved.type, status: saved.status });
+    this.logger.log({
+      event: 'job.created',
+      jobId: saved.id,
+      type: saved.type,
+      status: saved.status,
+    });
     this.eventsService.broadcast('job.created', {
       jobId: saved.id,
       type: saved.type,
@@ -100,7 +105,10 @@ export class JobsService {
 
     await this.jobsRepository.update(id, { status: JobStatus.CANCELLED });
     this.logger.log({ event: 'job.cancelled', jobId: id });
-    this.eventsService.broadcast('job.cancelled', { jobId: id, status: JobStatus.CANCELLED });
+    this.eventsService.broadcast('job.cancelled', {
+      jobId: id,
+      status: JobStatus.CANCELLED,
+    });
     return this.findOne(id);
   }
 

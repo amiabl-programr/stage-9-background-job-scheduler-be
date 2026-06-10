@@ -8,7 +8,11 @@ import { DagModule } from '../dependency-graph/dag.module';
 import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Job]), forwardRef(() => DagModule), EventsModule],
+  imports: [
+    TypeOrmModule.forFeature([Job]),
+    forwardRef(() => DagModule),
+    EventsModule,
+  ],
   controllers: [JobsController],
   providers: [JobsService, JobsRepository],
   exports: [JobsService, JobsRepository],

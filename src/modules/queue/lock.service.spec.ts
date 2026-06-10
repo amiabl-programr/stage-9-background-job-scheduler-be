@@ -4,7 +4,9 @@ describe('LockService', () => {
   let service: LockService;
 
   beforeAll(() => {
-    service = new LockService({ get: () => process.env.REDIS_URL ?? 'redis://localhost:6379' } as any);
+    service = new LockService({
+      get: () => process.env.REDIS_URL ?? 'redis://localhost:6379',
+    } as any);
   });
 
   afterAll(async () => {

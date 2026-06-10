@@ -46,7 +46,11 @@ export class JobProcessor extends WorkerHost {
 
     try {
       await this.jobsRepository.markProcessing(dbJob.id);
-      this.logger.log({ event: 'job.started', jobId: dbJob.id, type: dbJob.type });
+      this.logger.log({
+        event: 'job.started',
+        jobId: dbJob.id,
+        type: dbJob.type,
+      });
       this.eventsService.broadcast('job.started', {
         jobId: dbJob.id,
         type: dbJob.type,
@@ -74,7 +78,13 @@ export class JobProcessor extends WorkerHost {
   private async handleFailure(dbJob: Job, error: string): Promise<void> {
     const newRetryCount = dbJob.retryCount + 1;
 
-    this.logger.warn({ event: 'job.failed', jobId: dbJob.id, attempt: newRetryCount, maxRetries: MAX_RETRIES, error });
+    this.logger.warn({
+      event: 'job.failed',
+      jobId: dbJob.id,
+      attempt: newRetryCount,
+      maxRetries: MAX_RETRIES,
+      error,
+    });
 
     if (newRetryCount >= MAX_RETRIES) {
       await this.jobsRepository.markFailed(dbJob.id, error);
@@ -96,7 +106,12 @@ export class JobProcessor extends WorkerHost {
       { delay: delayMs },
     );
 
-    this.logger.log({ event: 'job.retry', jobId: dbJob.id, attempt: newRetryCount, delayMs });
+    this.logger.log({
+      event: 'job.retry',
+      jobId: dbJob.id,
+      attempt: newRetryCount,
+      delayMs,
+    });
     this.eventsService.broadcast('job.retry', {
       jobId: dbJob.id,
       attempt: newRetryCount,
@@ -119,7 +134,11 @@ export class JobProcessor extends WorkerHost {
     });
     await this.jobsRepository.save(nextJob);
 
-    this.logger.log({ event: 'job.rescheduled', jobId: job.id, nextRunAt: nextScheduledAt.toISOString() });
+    this.logger.log({
+      event: 'job.rescheduled',
+      jobId: job.id,
+      nextRunAt: nextScheduledAt.toISOString(),
+    });
   }
 
   private computeNextRun(interval: string): Date {

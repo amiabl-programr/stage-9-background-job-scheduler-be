@@ -71,7 +71,8 @@ describe('EventsService', () => {
 
     service.broadcast('job.failed', { jobId: '456', error: 'ERR' });
 
-    const expected = 'event: job.failed\ndata: {"jobId":"456","error":"ERR"}\n\n';
+    const expected =
+      'event: job.failed\ndata: {"jobId":"456","error":"ERR"}\n\n';
     expect(write1).toHaveBeenCalledWith(expected);
     expect(write2).toHaveBeenCalledWith(expected);
   });

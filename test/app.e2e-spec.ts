@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, UnprocessableEntityException } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
@@ -25,7 +29,10 @@ describe('Background Job Scheduler (e2e)', () => {
         forbidNonWhitelisted: true,
         exceptionFactory: (errors) =>
           new UnprocessableEntityException(
-            errors.map((e) => ({ property: e.property, constraints: e.constraints })),
+            errors.map((e) => ({
+              property: e.property,
+              constraints: e.constraints,
+            })),
           ),
       }),
     );
@@ -138,11 +145,16 @@ describe('Background Job Scheduler (e2e)', () => {
       // First create a completed job as dependency
       const parent = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'dep@test.com', subject: 'Parent' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'dep@test.com', subject: 'Parent' },
+        })
         .expect(201);
 
       // Manually mark it completed
-      await dataSource.getRepository(Job).update(parent.body.id, { status: 'completed' });
+      await dataSource
+        .getRepository(Job)
+        .update(parent.body.id, { status: 'completed' });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/jobs')
@@ -248,7 +260,10 @@ describe('Background Job Scheduler (e2e)', () => {
     it('cancels a pending job', async () => {
       const job = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'cancel@test.com', subject: 'Cancel' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'cancel@test.com', subject: 'Cancel' },
+        })
         .expect(201);
 
       cancellableJobId = job.body.id;
@@ -270,7 +285,10 @@ describe('Background Job Scheduler (e2e)', () => {
       // Create and complete a job
       const job = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'complete@test.com', subject: 'Complete' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'complete@test.com', subject: 'Complete' },
+        })
         .expect(201);
 
       await dataSource.getRepository(Job).update(job.body.id, {
@@ -292,7 +310,10 @@ describe('Background Job Scheduler (e2e)', () => {
     it('deletes a job', async () => {
       const job = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'delete@test.com', subject: 'Delete' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'delete@test.com', subject: 'Delete' },
+        })
         .expect(201);
 
       deletableJobId = job.body.id;
@@ -324,7 +345,10 @@ describe('Background Job Scheduler (e2e)', () => {
       // Create a failed job first
       const job = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'dlq@test.com', subject: 'DLQ Test' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'dlq@test.com', subject: 'DLQ Test' },
+        })
         .expect(201);
 
       // Manually push to DLQ by simulating retries exhausted
@@ -370,7 +394,10 @@ describe('Background Job Scheduler (e2e)', () => {
       // Create job A
       const jobA = await request(app.getHttpServer())
         .post('/api/v1/jobs')
-        .send({ type: 'send_email', payload: { to: 'cycle@test.com', subject: 'A' } })
+        .send({
+          type: 'send_email',
+          payload: { to: 'cycle@test.com', subject: 'A' },
+        })
         .expect(201);
 
       // Create job B depending on A

@@ -31,7 +31,10 @@ export class DeadLetterService {
     private readonly configService: ConfigService,
     @InjectQueue('jobs') private readonly jobsQueue: Queue,
   ) {
-    this.alertThreshold = this.configService.get<number>('DLQ_ALERT_THRESHOLD', 10);
+    this.alertThreshold = this.configService.get<number>(
+      'DLQ_ALERT_THRESHOLD',
+      10,
+    );
   }
 
   async add(job: Job, errorMessage: string): Promise<DeadLetterEntry> {
@@ -51,11 +54,19 @@ export class DeadLetterService {
     });
 
     const saved = await this.deadLetterRepository.save(entry);
-    this.logger.log({ event: 'dlq.entry_added', jobId: job.id, error: errorMessage });
+    this.logger.log({
+      event: 'dlq.entry_added',
+      jobId: job.id,
+      error: errorMessage,
+    });
 
     const count = await this.deadLetterRepository.count();
     if (count >= this.alertThreshold) {
-      this.logger.warn({ event: 'dlq.threshold_exceeded', count, threshold: this.alertThreshold });
+      this.logger.warn({
+        event: 'dlq.threshold_exceeded',
+        count,
+        threshold: this.alertThreshold,
+      });
       this.eventsService.broadcast('dlq.threshold_exceeded', {
         count,
         threshold: this.alertThreshold,
