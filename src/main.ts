@@ -16,23 +16,26 @@ async function bootstrap() {
 
   app.enableCors();
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       exceptionFactory: (errors) => {
-        const response = new UnprocessableEntityException(
+        return new UnprocessableEntityException(
           errors.map((e) => ({
             property: e.property,
             constraints: e.constraints,
           })),
         );
-        return response;
       },
     }),
   );
+
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  const appUrl = process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Background Job Scheduler API')
@@ -40,16 +43,16 @@ async function bootstrap() {
       'Manage, schedule, and monitor background jobs with priority queuing, DAG dependencies, and real-time SSE events.',
     )
     .setVersion('1.0')
-    .addServer('http://localhost:3000', 'Local development')
+    .addServer(appUrl, process.env.NODE_ENV === 'production' ? 'Production' : 'Local development')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup('api/docs', app, document);  // ← moved under /api/
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   Logger.log(`Server running on port ${port}`, 'Bootstrap');
-  Logger.log(`Swagger docs at http://localhost:${port}/docs`, 'Bootstrap');
+  Logger.log(`Swagger docs at ${appUrl}/api/docs`, 'Bootstrap');
 }
 
 bootstrap().catch((err: unknown) => {
