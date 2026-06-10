@@ -41,6 +41,7 @@ export class JobProcessor extends WorkerHost {
       await this.dispatch(dbJob);
       await this.jobsRepository.markCompleted(dbJob.id);
       this.logger.log(`Completed job ${dbJob.id}`);
+      await this.rescheduleIfRecurring(dbJob);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       await this.handleFailure(dbJob, message);
@@ -70,6 +71,34 @@ export class JobProcessor extends WorkerHost {
     );
 
     this.logger.log(`Job ${dbJob.id} re-enqueued with ${delayMs}ms delay`);
+  }
+
+  private async rescheduleIfRecurring(job: Job): Promise<void> {
+    if (!job.recurringInterval) return;
+
+    const nextScheduledAt = this.computeNextRun(job.recurringInterval);
+    const nextJob = this.jobsRepository.create({
+      type: job.type,
+      payload: job.payload,
+      priority: job.priority,
+      recurringInterval: job.recurringInterval,
+      scheduledAt: nextScheduledAt,
+    });
+    await this.jobsRepository.save(nextJob);
+
+    this.logger.log(
+      `Rescheduled recurring job ${job.id} — next run at ${nextScheduledAt.toISOString()}`,
+    );
+  }
+
+  private computeNextRun(interval: string): Date {
+    const now = new Date();
+    const map: Record<string, number> = {
+      every_1_minute: 60_000,
+      every_5_minutes: 300_000,
+      every_1_hour: 3_600_000,
+    };
+    return new Date(now.getTime() + (map[interval] ?? 60_000));
   }
 
   private computeBackoff(attempt: number): number {
