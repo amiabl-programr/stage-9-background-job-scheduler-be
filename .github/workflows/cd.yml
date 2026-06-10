@@ -27,6 +27,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Test SSH connectivity
+        run: |
+          ssh -v -i <(echo "${{ secrets.SSH_PRIVATE_KEY }}") \
+            -p ${{ secrets.SERVER_PORT }} \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            echo "SSH connection successful"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
