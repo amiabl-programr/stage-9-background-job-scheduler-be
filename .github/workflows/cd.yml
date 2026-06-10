@@ -99,6 +99,7 @@ jobs:
             echo "SMTP_USER=$SMTP_USER" >> .env
             echo "SMTP_PASS=$SMTP_PASS" >> .env
             echo "ALERT_EMAIL_TO=$ALERT_EMAIL_TO" >> .env
+            echo "APP_URL=$APP_URL" >> .env
 
             # Install dependencies
             pnpm install --frozen-lockfile
@@ -109,11 +110,18 @@ jobs:
             # Run migrations
             pnpm migration:run
 
-            # PM2 deploy (safe reload)
+            # PM2 - API
             if pm2 describe scheduler-api > /dev/null 2>&1; then
-              pm2 reload scheduler-api --update-env
+              pm2 restart scheduler-api --update-env
             else
               pm2 start dist/main.js --name scheduler-api
+            fi
+
+            # PM2 - Worker
+            if pm2 describe scheduler-worker > /dev/null 2>&1; then
+              pm2 restart scheduler-worker --update-env
+            else
+              pm2 start dist/worker.js --name scheduler-worker
             fi
 
             pm2 save
