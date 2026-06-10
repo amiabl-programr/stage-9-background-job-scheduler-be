@@ -4,6 +4,7 @@
 #   SSH_PRIVATE_KEY — Private SSH key (public key must be in ~/.ssh/authorized_keys on server)
 #   SERVER_PORT     — SSH port (usually 22)
 #   APP_DOMAIN      — e.g. stage9.duckdns.org
+#   DATABASE_URL    — PostgreSQL connection string (postgresql://user:password@host:port/database)
 
 name: CD
 
@@ -23,6 +24,14 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
 
+    env:
+      SERVER_IP: ${{ secrets.SERVER_IP }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,52 +39,56 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          cat > ~/.ssh/id_rsa << 'EOF'
-          ${{ secrets.SSH_PRIVATE_KEY }}
-          EOF
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -p $SERVER_PORT $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Test SSH connectivity
         run: |
-          ssh -v -p ${{ secrets.SERVER_PORT }} \
+          ssh -v -p $SERVER_PORT \
             -o StrictHostKeyChecking=accept-new \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            $SERVER_USER@$SERVER_IP \
             echo "SSH connection successful"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
+          host: ${{ env.SERVER_IP }}
+          username: ${{ env.SERVER_USER }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
+          port: ${{ env.SERVER_PORT }}
+          script_stop: true
           script: |
             set -e
             mkdir -p /var/www/scheduler-api
             cd /var/www/scheduler-api
-            
+
             # Initialize repository if it doesn't exist
             if [ ! -d .git ]; then
               git clone https://github.com/amiabl-programr/stage-9-background-job-scheduler-be.git .
             fi
-            
+
             # Pull latest changes
             git fetch origin main
             git reset --hard origin/main
-            
+
+            # Create .env file
+            cat > .env << 'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            ENVEOF
+
             # Install and build
             pnpm install --frozen-lockfile
             pnpm build
             pnpm migration:run
-            
+
             # Reload application
             pm2 reload ecosystem.config.js --update-env
 
       - name: Health check
         run: |
           curl --fail --retry 5 --retry-delay 5 --retry-connrefused \
-            https://${{ secrets.APP_DOMAIN }}/api/health
+            https://$APP_DOMAIN/api/health
 
       - name: Write deployment summary
         run: |
