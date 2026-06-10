@@ -24,11 +24,17 @@ export class JobsRepository extends Repository<Job> {
   }
 
   async markProcessing(id: string): Promise<void> {
-    await this.update(id, { status: JobStatus.PROCESSING, startedAt: new Date() });
+    await this.update(id, {
+      status: JobStatus.PROCESSING,
+      startedAt: new Date(),
+    });
   }
 
   async markCompleted(id: string): Promise<void> {
-    await this.update(id, { status: JobStatus.COMPLETED, completedAt: new Date() });
+    await this.update(id, {
+      status: JobStatus.COMPLETED,
+      completedAt: new Date(),
+    });
   }
 
   async markFailed(id: string, error: string): Promise<void> {
