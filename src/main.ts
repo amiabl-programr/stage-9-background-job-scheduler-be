@@ -9,6 +9,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { validateEnv } from './config/env';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -35,7 +36,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  const appUrl = process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  const env = validateEnv(process.env);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Background Job Scheduler API')
@@ -43,16 +44,15 @@ async function bootstrap() {
       'Manage, schedule, and monitor background jobs with priority queuing, DAG dependencies, and real-time SSE events.',
     )
     .setVersion('1.0')
-    .addServer(appUrl, process.env.NODE_ENV === 'production' ? 'Production' : 'Local development')
+    .addServer(env.APP_URL, env.NODE_ENV === 'production' ? 'Production' : 'Local development')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);  // ← moved under /api/
+  SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  Logger.log(`Server running on port ${port}`, 'Bootstrap');
-  Logger.log(`Swagger docs at ${appUrl}/api/docs`, 'Bootstrap');
+  await app.listen(env.PORT);
+  Logger.log(`Server running on port ${env.PORT}`, 'Bootstrap');
+  Logger.log(`Swagger docs at ${env.APP_URL}/api/docs`, 'Bootstrap');
 }
 
 bootstrap().catch((err: unknown) => {
