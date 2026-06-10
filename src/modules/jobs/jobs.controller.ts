@@ -34,7 +34,7 @@ export class JobsController {
   @ApiOperation({ summary: 'Create a new job' })
   @ApiResponse({ status: 201, type: Job })
   async create(@Body() dto: CreateJobDto): Promise<Job> {
-    this.logger.log(`POST /jobs - type=${dto.type}`);
+    this.logger.log({ event: 'job.create_request', type: dto.type });
     return this.jobsService.create(dto);
   }
 
@@ -50,7 +50,7 @@ export class JobsController {
   async events(@Req() request: Request, @Res() response: Response): Promise<void> {
     const clientId = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     this.eventsService.addClient(clientId, response);
-    this.logger.log(`SSE client connected: ${clientId}`);
+    this.logger.log({ event: 'sse.client_connected', clientId });
   }
 
   @Get(':id')

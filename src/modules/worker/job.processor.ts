@@ -29,24 +29,24 @@ export class JobProcessor extends WorkerHost {
 
     const dbJob = await this.jobsRepository.findById(job.data.jobId);
     if (!dbJob) {
-      this.logger.warn(`Job ${job.data.jobId} not found in DB`);
+      this.logger.warn({ event: 'job.not_found', jobId: job.data.jobId });
       return;
     }
 
     if (dbJob.status === JobStatus.CANCELLED) {
-      this.logger.log(`Skipping cancelled job ${dbJob.id}`);
+      this.logger.warn({ event: 'job.skipped_cancelled', jobId: dbJob.id });
       return;
     }
 
     const acquired = await this.lockService.acquireLock(dbJob.id);
     if (!acquired) {
-      this.logger.warn(`Job ${dbJob.id} is locked by another worker, skipping`);
+      this.logger.warn({ event: 'job.lock_conflict', jobId: dbJob.id });
       return;
     }
 
     try {
       await this.jobsRepository.markProcessing(dbJob.id);
-      this.logger.log(`Processing job ${dbJob.id} (${dbJob.type})`);
+      this.logger.log({ event: 'job.started', jobId: dbJob.id, type: dbJob.type });
       this.eventsService.broadcast('job.started', {
         jobId: dbJob.id,
         type: dbJob.type,
@@ -55,7 +55,7 @@ export class JobProcessor extends WorkerHost {
 
       await this.dispatch(dbJob);
       await this.jobsRepository.markCompleted(dbJob.id);
-      this.logger.log(`Completed job ${dbJob.id}`);
+      this.logger.log({ event: 'job.completed', jobId: dbJob.id });
       this.eventsService.broadcast('job.completed', {
         jobId: dbJob.id,
         type: dbJob.type,
@@ -74,9 +74,7 @@ export class JobProcessor extends WorkerHost {
   private async handleFailure(dbJob: Job, error: string): Promise<void> {
     const newRetryCount = dbJob.retryCount + 1;
 
-    this.logger.warn(
-      `Job ${dbJob.id} failed (attempt ${newRetryCount}/${MAX_RETRIES}): ${error}`,
-    );
+    this.logger.warn({ event: 'job.failed', jobId: dbJob.id, attempt: newRetryCount, maxRetries: MAX_RETRIES, error });
 
     if (newRetryCount >= MAX_RETRIES) {
       await this.jobsRepository.markFailed(dbJob.id, error);
@@ -98,7 +96,7 @@ export class JobProcessor extends WorkerHost {
       { delay: delayMs },
     );
 
-    this.logger.log(`Job ${dbJob.id} re-enqueued with ${delayMs}ms delay`);
+    this.logger.log({ event: 'job.retry', jobId: dbJob.id, attempt: newRetryCount, delayMs });
     this.eventsService.broadcast('job.retry', {
       jobId: dbJob.id,
       attempt: newRetryCount,
@@ -121,9 +119,7 @@ export class JobProcessor extends WorkerHost {
     });
     await this.jobsRepository.save(nextJob);
 
-    this.logger.log(
-      `Rescheduled recurring job ${job.id} — next run at ${nextScheduledAt.toISOString()}`,
-    );
+    this.logger.log({ event: 'job.rescheduled', jobId: job.id, nextRunAt: nextScheduledAt.toISOString() });
   }
 
   private computeNextRun(interval: string): Date {
@@ -165,8 +161,6 @@ export class JobProcessor extends WorkerHost {
       throw new Error('Simulated SMTP delivery failure');
     }
 
-    this.logger.log(
-      `Email sent to ${to} — subject: "${subject}" (job ${job.id})`,
-    );
+    this.logger.log({ event: 'email.sent', to, subject, jobId: job.id });
   }
 }
