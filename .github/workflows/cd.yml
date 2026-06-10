@@ -50,14 +50,26 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          script_stop: true
           script: |
             set -e
+            mkdir -p /var/www/scheduler-api
             cd /var/www/scheduler-api
-            git pull origin main
+            
+            # Initialize repository if it doesn't exist
+            if [ ! -d .git ]; then
+              git clone https://github.com/amiabl-programr/stage-9-background-job-scheduler-be.git .
+            fi
+            
+            # Pull latest changes
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Install and build
             pnpm install --frozen-lockfile
             pnpm build
             pnpm migration:run
+            
+            # Reload application
             pm2 reload ecosystem.config.js --update-env
 
       - name: Health check
@@ -72,4 +84,3 @@ jobs:
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time (UTC):** $(date -u '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
           echo "- **Health check:** ✅ passed" >> $GITHUB_STEP_SUMMARY
-          
