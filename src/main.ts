@@ -15,10 +15,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(PinoLogger));
 
+  // ✅ Allow CORS from ALL origins
   app.enableCors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: '*',
   });
 
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
@@ -27,13 +28,14 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-      exceptionFactory: (errors) =>
-        new UnprocessableEntityException(
+      exceptionFactory: (errors) => {
+        return new UnprocessableEntityException(
           errors.map((e) => ({
             property: e.property,
             constraints: e.constraints,
           })),
-        ),
+        );
+      },
     }),
   );
 
@@ -52,6 +54,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
+  // ✅ CHANGE: swagger now lives at /docs (NOT /api/docs)
   SwaggerModule.setup('docs', app, document);
 
   await app.listen(env.PORT);
