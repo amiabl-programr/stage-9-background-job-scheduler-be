@@ -23,7 +23,9 @@
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "db:reset": "typeorm-ts-node-commonjs schema:drop -d src/database/data-source.ts && typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
-    "seed": "npx ts-node src/database/seed.ts"
+    "seed": "npx ts-node src/database/seed.ts",
+    "test:load": "autocannon -c 10 -d 15 http://localhost:3000/health",
+    "test:load:jobs": "autocannon -c 10 -d 15 -m POST -i scripts/load-body.json -H \"Content-Type: application/json\" http://localhost:3000/api/v1/jobs"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
